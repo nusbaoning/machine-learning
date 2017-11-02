@@ -25,6 +25,9 @@ def load_file(datafile):
     r = 0
     page = {}
     file = {}
+    process = {}
+    reflection = {}
+    uniqueInode = 0
     req = 1
     try:
         
@@ -86,44 +89,41 @@ def load_file(datafile):
             count = int(items[j])
             j+=2
             filename = items[j]            
-            current = timestamp
 #            if i<=30:
 #                 print("line=", i, "task=", task, "pid=", pid, 
 #                       "timestamp=", timestamp, "function_name=", function_name, 
 #                       "inode=", inode, "isize=", isize, "pos=", pos, "count=", count, "filename=",filename)
 #            else:
 #                 break
+            
+            #映射inode
+            if not inode in reflection:
+                reflection[inode] = {filename:uniqueInode}                
+                inode = uniqueInode
+                uniqueInode += 1
+            elif not filename in reflection[inode]:
+                reflection[inode][filename] = uniqueInode
+                inode = uniqueInode
+                uniqueInode += 1
+            else:
+                inode = reflection[inode][filename]
+
             if not inode in file.keys():
                 file[inode] = filename
-# fileserver.f中没有重命名指令，filename不同说明文件被删除，那么所有历史数据一并删除，开始记录新的访问请求
-            elif filename != file[inode]:
-                file[inode] = filename
-                del page[inode]
+            # fileserver.f中没有重命名指令，filename不同说明文件被删除，那么所有历史数据一并删除，开始记录新的访问请求
+            # elif filename != file[inode]:
+            #     file[inode] = filename
+            #     del page[inode]
             if not inode in page.keys():
                 page[inode] = {}
             index0 = pos >> 12
+            if r==0:
+                count = min(count, isize-pos)
             index1 = (pos + count - 1) >> 12
             for index in range(index0, index1+1):
                 access_page(page[inode], index, req, r, pid)
+                access_process(inode, index, pid, r, process)
                 req += 1
-#            if r == 0:
-#                readreq += index_1 - index_0 + 1
-#                continue
-#            for index in range(index_0, index_1 + 1):         
-#                writereq += 1
-#                if not index in page[inode].keys():
-#                    indexNum += 1
-#                    page[inode][index] = (timestamp, 0)
-#                else:
-#                    last, overwrite = page[inode][index]
-#                    if timestamp - last <= DIRTY_THROT:
-#                        page[inode][index] = (timestamp, overwrite + 1)
-#                    else:
-#                        # f.write("normal addover %d, %d, %d\n" % (inode, index, overwrite))
-#                        addoverwrite(overwrite)
-#                        page[inode][index] = (timestamp, 0)
-            
-            
             if i%10000==0:
                 e = time.time()
                 print(i, int(100*i/lineNum), "%", "consumed", (e-s), "s")
@@ -153,9 +153,26 @@ def load_file(datafile):
                     avg = sum(reUseList)/len(reUseList)
                 else:
                     minr = maxr = avg = -1
+                l=[[],[],[],[]]
+                for pid in pidList:
+                    (keyList, r, w) = process[pid]
+                    avgr = r/len(keyList)
+                    avgw = w/len(keyList)
+                    l[0].append(r)
+                    l[1].append(w)
+                    l[2].append(avgr)
+                    l[3].append(avgw)
                 print(inode, index, fileType, file[inode], req, minr, 
-                      maxr, avg, lR, lW, lR+lW, len(pidList), sep=',',file=fout)
+                      maxr, avg, lR, lW, lR+lW, len(pidList), min(l[0]), max(l[0]), sum(l[0])/len(l[0]),
+                      min(l[1]), max(l[1]), sum(l[1])/len(l[1]),
+                      min(l[2]), max(l[2]), sum(l[2])/len(l[2]),
+                      min(l[3]), max(l[3]), sum(l[3])/len(l[3]), sep=',',file=fout)
+        
         fin.close()
+        fout.close()
+        fout = open(datafile+".metadata", "w")
+        print(process, file=fout)
+        print(reflection, file=fout)
         fout.close()
         
 def access_page(inodeDict, index, req, rw, pid):
@@ -168,5 +185,17 @@ def access_page(inodeDict, index, req, rw, pid):
             pidList.append(pid)
         inodeDict[index] = (req, reUseList, lR+1-rw, lW+rw, pidList)
     
+def access_process(inode, index, pid, rw, process):
+    key = inode
+    if pid not in process:
+        process[pid] = ([key], 1-rw, rw)
+    else:
+        (keyList, r, w) = process[pid]
+        if key not in keyList:
+            keyList.append(key)
+        process[pid] = (keyList, r+1-rw, w+rw)
 
+start = time.time()
 load_file(datafile)
+end = time.time()
+print("consumed ", end-start, "s")
