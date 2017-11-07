@@ -14,15 +14,16 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.naive_bayes import GaussianNB
-from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
 from sklearn import preprocessing
-
+import time
 # Load dataset
 #print(inode, index, fileType, file[inode], req, minr, 
 #                      maxr, avg, lR, lW, lR+lW, len(pidList), min(l[0]), max(l[0]), sum(l[0])/len(l[0]),
 #                      min(l[1]), max(l[1]), sum(l[1])/len(l[1]),
 #                      min(l[2]), max(l[2]), sum(l[2])/len(l[2]),
 ##                      min(l[3]), max(l[3]), sum(l[3])/len(l[3]), sep=',',file=fout)
+s = time.time()
 names = ['inode', 'index', 'filetype', 'filename', 'latest access time', 
          'min access distance','max access distance', 'avg access distance', 'read req', 'write req', 
          'total req', 'process number', 'min process read', 'max process read','avg process read',
@@ -62,16 +63,26 @@ validation_size = 0.50
 seed = 7
 X_train, X_validation, Y_train, Y_validation = model_selection.train_test_split(X, Y, test_size=validation_size, random_state=seed)
 seed = 7
-scoring = 'accuracy'
+print("data management finished")
 #knn = KNeighborsClassifier()
 #knn.fit(X_train, Y_train)
 #predictions = knn.predict(X_validation)
 #print(accuracy_score(Y_validation, predictions))
 #print(confusion_matrix(Y_validation, predictions))
 #print(classification_report(Y_validation, predictions))
-knn = LogisticRegression()
-knn.fit(X_train, Y_train)
-predictions = knn.predict(X_validation)
+#knn = LogisticRegression()
+#knn.fit(X_train, Y_train)
+#predictions = knn.predict(X_validation)
+#print(accuracy_score(Y_validation, predictions))
+#print(confusion_matrix(Y_validation, predictions))
+#print(classification_report(Y_validation, predictions))
+model = LinearSVC(class_weight={True:100})
+print("initial finished")
+model.fit(X_train, Y_train)
+print("train finished")
+predictions = model.predict(X_validation)
 print(accuracy_score(Y_validation, predictions))
 print(confusion_matrix(Y_validation, predictions))
 print(classification_report(Y_validation, predictions))
+e = time.time()
+print("consumed", e-s)
