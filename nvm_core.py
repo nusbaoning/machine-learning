@@ -2,6 +2,10 @@ import numpy
 from cache_algorithm import LRU
 from time import time
 import heapq
+from sys import exit
+import traceback
+
+
 class MaxHeapObj(object):
   def __init__(self,val): self.val = val
   def __lt__(self,other): return self.val > other.val
@@ -33,9 +37,11 @@ class PageManage(object):
 
 	def write_help(self, page):
 		self.writeArray[page] += 1
-		heapq.heapreplace(self.minheap, (self.writeArray[page], page))
-		heapq.heapreplace(self.maxheap, MaxHeapObj((self.writeArray[page], page)))
-
+		block = self.writeArray[page]
+		tp = (block, page)		
+		heapq.heapreplace(self.minheap, tp)
+		heapq.heapreplace(self.maxheap, MaxHeapObj(tp))
+		
 	def add_page_mapping(self, addr, page):
 		self.mappingAddr[addr] = page
 		self.mappingPage[page] = addr
@@ -45,15 +51,18 @@ class PageManage(object):
 		del self.mappingPage[page]
 		del self.mappingAddr[addr]
 		self.freePage[page] = True
+		
 
 	def modify_page_mapping(self, oriaddr, destaddr):
 		page = self.mappingAddr[oriaddr]
-		self.mappingAddr[page] = destaddr
+		self.mappingPage[page] = destaddr
 		del self.mappingAddr[oriaddr]
 		self.mappingAddr[destaddr] = page
 		self.write_help(page)
-
+		
 	def exchange_two_pages(self, p1, p2):
+		a1 = None
+		a2 = None
 		if p1 in self.mappingPage:			
 			a1 = self.mappingPage[p1]
 			self.mappingAddr[a1] = p2
@@ -70,17 +79,18 @@ class PageManage(object):
 			self.write_help(p2)
 		else:
 			self.freePage[p2] = True
-
+		
 	def get_max_min_pages(self):
 		maxp = tuple(self.maxheap[0].val)
 		minp = self.minheap[0]
 		return (maxp, minp)
+
 	def print_result(self, filename, size, mode, parameter):
 		writeArray = self.writeArray
 		print(max(writeArray), numpy.mean(writeArray), numpy.std(writeArray))
 		fout = open("result.log", "a")
 		print(filename[filename.rfind("/")+1:filename.find(".")], size, mode, parameter, max(writeArray), numpy.mean(writeArray), numpy.std(writeArray), file=fout, 
-    		seq=',')
+    		sep=',')
 		fout.close()
 
 # def core_function(filename, size, overProvision=0.1):
@@ -146,34 +156,67 @@ def static_wear_leveling(filename, size, mode, parameter):
 	cache = LRU(size)
 	pm = PageManage(size)	
 	i = 0
+	req = 0
 	nrLine = len(lines)
 	start = time()
 	for line in lines:
 		i += 1
-		nrsegment = 50000
+		nrsegment = 100000
 		if i%nrsegment==0:
 			end = time()
-			print(i, i/nrLine*100, "%", "consumed", end-start, "s", "expected remaining time", round((nrLine-i)/nrsegment*(end-start),3), "s")
+			print(i, round(i/nrLine*100,2), "%", "consumed", round(end-start,2), "s", "expected remaining time", round((nrLine-i)/nrsegment*(end-start),2), "s")
 			start = end
 		reqtype, blkStart, blkEnd = parse(line)
 		# print(mappingAddr, mappingPage)
-		for block in range(blkStart,blkEnd+1):        	
+		for block in range(blkStart,blkEnd+1):      	
 			hit = cache.is_hit(block)				
 			evtBlk = cache.update_cache(block)
+			
 			if hit:
 				if reqtype==1:
+					req += 1
 					# print(i, block)
 					# print(mappingAddr[block])
+					# try:
 					pm.write_help(pm.mappingAddr[block])
+					# except Exception as e:
+					# 	print(block)
+					# 	if block in pm.mappingAddr:
+					# 		pg = pm.mappingAddr[block]
+					# 		print(pg)
+					# 		print(len(pm.writeArray))
+					# 	traceback.print_exc()
+					# 	exit(-1)
+					
 			else:
-				if evtBlk != None:
-					# print(i, evtBlk)
+				req += 1
+				# if block == badblk:
+				# 	print(evtBlk, pm.mappingAddr[errorblk])
+				if evtBlk != None:					
 					pm.modify_page_mapping(evtBlk, block)
+					# if block == badblk:
+					# 	print(evtBlk, block)
+					
 				else:
 					page = pm.get_free_page()
 					pm.add_page_mapping(block, page)
+					# if block == badblk:
+					# 	print(block, page)
+					# if block == errorblk:
+					# 	print("add", page, pm.mappingAddr[block])
+			# if errorblk in pm.mappingAddr and pm.mappingAddr[errorblk]!=121:
+			# 	print(reqtype, block, hit, pm.mappingAddr[errorblk], pm.mappingAddr[block])
+			# 	if not hit:
+			# 		print(evtBlk)
+			# 	exit(-1)
+		# 	print(pm.mappingPage, pm.mappingAddr, reqtype, block, hit, sum(pm.writeArray))
+			# if errorblk in pm.mappingAddr and errorPage!=pm.mappingAddr[errorblk]:
+			# 	print(reqtype, block, hit, pm.mappingAddr[errorblk], pm.mappingAddr[block])
+			# 	exit(-1)
+		# if i>=10:
+		# 	exit(-1)
 		if mode == 'P':
-			if i%parameter==0:
+			if req%parameter==0:
 				(maxv, p1), (minv, p2) = pm.get_max_min_pages()
 				pm.exchange_two_pages(p1, p2)
 		elif mode == 'T':
@@ -181,8 +224,10 @@ def static_wear_leveling(filename, size, mode, parameter):
 			if maxv-minv>=parameter:
 				pm.exchange_two_pages(p1,p2)				
 	pm.print_result(filename, size, mode, parameter)
-	
+
+print("Version 3.4")
 start = time()
+static_wear_leveling("/mnt/raid5/trace/MS-Cambridge/hm_0.csv", 2**19, "B", 10000)
 static_wear_leveling("/mnt/raid5/trace/MS-Cambridge/hm_0.csv", 2**19, "P", 10000)
 static_wear_leveling("/mnt/raid5/trace/MS-Cambridge/hm_0.csv", 2**19, "T", 5)
 end = time()
