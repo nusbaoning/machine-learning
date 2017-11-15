@@ -2,6 +2,7 @@ import sys
 import time
 import collections
 import operator 
+import heapq
 
 
 PERIODNUM = 10
@@ -145,7 +146,44 @@ class Period(object):
         self.ssd.print_sample()
         self.hit = self.ssd.hit
 
+class Alloc(object):
+    """docstring for Alloc"""
+    # the element of l is (nrwrite, page id)
+    def __init__(self, l):
+        pass
 
+    def push_free_page(self, value, key):
+        pass
+
+    def pop_free_page():
+        pass
+
+class FIFO(Alloc):
+    """docstring for FIFO"""
+    def __init__(self, l):
+        lkey = [int(i[1]) for i in l]
+        self.data = collections.deque(lkey)
+
+    def push_free_page(self, value, key):
+        self.data.append(key)
+
+    def pop_free_page(self):
+        return self.data.popleft()
+
+class Minheap(Alloc):
+    """docstring for Minheap"""
+    def __init__(self, l):
+        self.data = l
+        heapq.heapify(self.data)
+
+    def push_free_page(self, value, key):
+        heapq.heappush(self.data, (value, key))
+
+    def pop_free_page(self):
+        return heapq.heappop(self.data)
+
+        
+        
         
 class HistoryDict(object):    
     """docstring for HistoryDict"""
