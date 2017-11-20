@@ -13,7 +13,7 @@ uclnDict = {
 "mds_0":	818174,
 "ts_0":	239289,
 "stg_0":	1668913,
-"proj0":	833112,
+"proj_0":	833112,
 "hm_0":	610404,
 "prn_0":	3886547,
 "web_0":	1915690,
@@ -394,15 +394,21 @@ print("Version 3.9")
 
 # for trace in traces:
 start = time()
-trace = sys.argv[1]
+trace = sys.argv[2]
 filename = "/mnt/raid5/trace/MS-Cambridge/" + trace + ".csv.req"
 size = int(0.1*uclnDict[trace])
-# static_wear_leveling("/mnt/raid5/trace/MS-Cambridge/" + trace + ".csv.req", size, "B", 10000)
-# static_wear_leveling("/mnt/raid5/trace/MS-Cambridge/" + trace + ".csv.req", size, "P", 10000)
-# static_wear_leveling("/mnt/raid5/trace/MS-Cambridge/" + trace + ".csv.req", size, "T", 5)
-# static_wear_leveling("/mnt/raid5/trace/MS-Cambridge/" + trace + ".csv.req", size, "T", 50)
-optimized_wl(filename, size, 100, "P", 10000)
-optimized_wl(filename, size, 1000, "P" , 10000)
-optimized_wl(filename, size, 100, "B", 50)
+if sys.argv[1] == 0:	
+	static_wear_leveling(filename, size, "B", 10000)
+	static_wear_leveling(filename, size, "P", 10000)
+	static_wear_leveling(filename, size, "T", 5)
+	static_wear_leveling(filename, size, "T", 50)
+elif sys.argv[1] == 1:
+	optimized_wl(filename, size, 100, "P", 10000)
+	optimized_wl(filename, size, 1000, "P" , 10000)
+	optimized_wl(filename, size, 100, "T", 50)
+else:
+	optimized_wl(filename, size, 1000, "T", 50)
 end = time()
 print(trace, "consumed", end-start, "s")
+
+
