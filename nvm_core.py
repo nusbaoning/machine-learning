@@ -189,57 +189,14 @@ class PageManage(object):
 		minp = self.minheap[0]
 		return (maxp, minp)
 
-	def print_result(self, filename, size, mode, parameter, cache, req, number=None):
+	def print_result(self, filename, size, mode, pr, th, cache, req, number=None):
 		writeArray = self.writeArray
 		print(round(100*cache.hit/req, 2), max(writeArray), numpy.mean(writeArray), numpy.std(writeArray))
 		fout = open("result.log", "a")
-		print(filename[filename.rfind("/")+1:filename.find(".")], size, number, mode, parameter, round(100*cache.hit/req, 2), max(writeArray), numpy.mean(writeArray), numpy.std(writeArray), file=fout, 
+		print(filename[filename.rfind("/")+1:filename.find(".")], size, number, mode, pr, th, round(100*cache.hit/req, 2), max(writeArray), numpy.mean(writeArray), numpy.std(writeArray), file=fout, 
     		sep=',')
 		fout.close()
 
-# def core_function(filename, size, overProvision=0.1):
-# 	start = time()
-# 	fin = open(filename, 'r', encoding='utf-8', errors='ignore')
-# 	lines = fin.readlines()
-# 	initial(size, overProvision)
-# 	cache = LRU(int(size*(1-overProvision)))
-# 	end = time()
-# 	print("load file finished consumed", end-start, "s")
-# 	start = end
-# 	blkSize = 4096
-# 	i = 0
-# 	nrLine = len(lines)
-# 	for line in lines:
-# 		i += 1
-# 		if i%50000==0:
-# 			end = time()
-# 			print(i, i/nrLine*100, "%", "consumed", end-start, "s")
-# 			start = end
-# 		line = line.strip().split(',')
-# 		blkStart = int((int(line[4]))/blkSize)
-# 		blkEnd = int((int(line[4])+int(line[5])-1)/blkSize)
-# 		if line[3]=='Write':
-# 			reqtype = 1
-# 		else:
-# 			reqtype = 0
-# 		# print(mappingAddr, mappingPage)
-# 		for block in range(blkStart,blkEnd+1):        	
-# 			hit = cache.is_hit(block)				
-# 			evtBlk = cache.update_cache(block)
-# 			if hit:
-# 				if reqtype==1:
-# 					# print(i, block)
-# 					# print(mappingAddr[block])
-# 					writeArray[mappingAddr[block]] += 1
-# 			else:
-# 				if evtBlk != None:
-# 					# print(i, evtBlk)
-# 					delete_page_mapping(evtBlk, mappingAddr[evtBlk])
-# 				nwpg = get_free_page()
-# 				add_page_mapping(block, nwpg)
-# 				writeArray[nwpg] += 1
-
-# 	print_result()
 
 
 def parse(line):
@@ -256,7 +213,7 @@ def parse(line):
 	block = int(items[2])
 	return (reqtype, block, block)
 
-def optimized_wl(filename, size, number, mode, wlparameter):
+def optimized_wl(filename, size, pr, th, k):
 	fin = open(filename, 'r', encoding='utf-8', errors='ignore')
 	lines = fin.readlines()
 	cache = LRU(size)
@@ -284,7 +241,7 @@ def optimized_wl(filename, size, number, mode, wlparameter):
 			else:
 				# cache is full
 				if len(cache) >= size:
-					evtPttl = cache.get_tail_n(number)
+					evtPttl = cache.get_tail_n(k)
 					minUpdate = -1
 					minBlock = -1
 					for evtBlk in evtPttl:
@@ -301,16 +258,14 @@ def optimized_wl(filename, size, number, mode, wlparameter):
 					cache.update_cache(block)
 					page = pm.get_free_page()
 					pm.add_page_mapping(block, page)
-		if mode == 'P':
-			if req%wlparameter==0:
-				pm.optimized_exchange(number, cache)
-		elif mode == 'T':
+		if req%pr==0:
 			(maxv, p1), (minv, p2) = pm.get_max_min_pages()
-			if maxv-minv>=wlparameter:
-				pm.optimized_exchange(number, cache)				
-	pm.print_result(filename, size, "O"+mode, wlparameter, cache, req, number)
+			if maxv-minv>=th:
+				pm.optimized_exchange(k, cache)				
+		
+	pm.print_result(filename, size, "CacheWL", pr, th, cache, req, k)
 
-def static_wear_leveling(filename, size, mode, parameter):
+def static_wear_leveling(filename, size, pr, th):
 	fin = open(filename, 'r', encoding='utf-8', errors='ignore')
 	lines = fin.readlines()
 	cache = LRU(size)
@@ -371,21 +326,17 @@ def static_wear_leveling(filename, size, mode, parameter):
 			# 	exit(-1)
 		# 	print(pm.mappingPage, pm.mappingAddr, reqtype, block, hit, sum(pm.writeArray))
 			# if errorblk in pm.mappingAddr and errorPage!=pm.mappingAddr[errorblk]:
-			# 	print(reqtype, block, hit, pm.mappingAddr[errorblk], pm.mappingAddr[block])
+		# 	print(reqtype, block, hit, pm.mappingAddr[errorblk], pm.mappingAddr[block])
 			# 	exit(-1)
 		# if i>=10:
 		# 	exit(-1)
-		if mode == 'P':
-			if req%parameter==0:
-				(maxv, p1), (minv, p2) = pm.get_max_min_pages()
-				pm.exchange_two_pages(p1, p2)
-		elif mode == 'T':
+		if req%pr==0:
 			(maxv, p1), (minv, p2) = pm.get_max_min_pages()
-			if maxv-minv>=parameter:
+			if maxv-minv>=th:
 				pm.exchange_two_pages(p1,p2)				
-	pm.print_result(filename, size, mode, parameter, cache, req)
+	pm.print_result(filename, size, "Traditional", pr, th, cache, req)
 
-print("Version 3.9")
+print("Version 4.0")
 # traces = [
 # "web_0", "stg_0", "mds_0", "src2_0", "rsrch_0", "ts_0",
 # "usr_0", "prn_0", "prxy_0", "proj_0", "wdev_0", "hm_0"]
@@ -397,17 +348,18 @@ start = time()
 trace = sys.argv[2]
 filename = "/mnt/raid5/trace/MS-Cambridge/" + trace + ".csv.req"
 size = int(0.1*uclnDict[trace])
-if sys.argv[1] == 0:	
-	static_wear_leveling(filename, size, "B", 10000)
-	static_wear_leveling(filename, size, "P", 10000)
-	static_wear_leveling(filename, size, "T", 5)
-	static_wear_leveling(filename, size, "T", 50)
+if sys.argv[1] == 0:		
+	static_wear_leveling(filename, size, 10000, 5)
+	static_wear_leveling(filename, size, 1000, 5)
+	static_wear_leveling(filename, size, 10000, 50)
+	static_wear_leveling(filename, size, 1000, 50)
 elif sys.argv[1] == 1:
-	optimized_wl(filename, size, 100, "P", 10000)
-	optimized_wl(filename, size, 1000, "P" , 10000)
-	optimized_wl(filename, size, 100, "T", 50)
-else:
-	optimized_wl(filename, size, 1000, "T", 50)
+	# def optimized_wl(filename, size, pr, th, k)
+	optimized_wl(filename, size, 10000, 5, 1000)
+	optimized_wl(filename, size, 1000, 5, 1000)
+	optimized_wl(filename, size, 10000, 50, 1000)
+	optimized_wl(filename, size, 1000, 50, 1000)
+
 end = time()
 print(trace, "consumed", end-start, "s")
 
